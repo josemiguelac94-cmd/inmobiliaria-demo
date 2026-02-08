@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inmobiliaria Mediterranea Valencia - Agenda tu visita</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f5f5f5;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.bot .message-bubble {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.success .message-bubble {
+            background: #4CAF50;
+            color: white;
+            text-align: center;
+            max-width: 100%;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px;
+            background: white;
+            border-radius: 18px;
+            width: fit-content;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #eee;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input input:focus {
+            border-color: #667eea;
+        }
+
+        .chat-input button {
+            margin-left: 10px;
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .chat-input button:hover {
+            transform: scale(1.05);
+        }
+
+        .chat-input button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🏠 Inmobiliaria Mediterránea Valencia</h1>
+            <p>Agenda tu visita con nosotros</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="userInput" placeholder="Escribe tu mensaje...">
+            <button id="sendButton">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            webhookUrl: 'https://ddd-ddd-n8n.lvfzoz.easypanel.host/webhook/inmobiliaria-chat',
+            maxHistoryLength: 20
+        };
+
+        const state = {
+            conversationHistory: [],
+            isProcessing: false
+        };
+
+        const elements = {
+            chatMessages: document.getElementById('chatMessages'),
+            userInput: document.getElementById('userInput'),
+            sendButton: document.getElementById('sendButton'),
+            typingIndicator: document.getElementById('typingIndicator')
+        };
+
+        function init() {
+            console.log('Chatbot inicializado');
+            console.log('Webhook URL:', CONFIG.webhookUrl);
+            console.log('Historial maximo:', CONFIG.maxHistoryLength, 'mensajes');
+            
+            elements.sendButton.addEventListener('click', handleSendMessage);
+            elements.userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !state.isProcessing) {
+                    handleSendMessage();
+                }
+            });
+
+            elements.userInput.focus();
+        }
+
+        async function handleSendMessage() {
+            const message = elements.userInput.value.trim();
+            
+            if (!message || state.isProcessing) {
+                return;
+            }
+
+            console.log('Usuario escribio:', message);
+
+            addUserMessage(message);
+            elements.userInput.value = '';
+            state.isProcessing = true;
+            elements.sendButton.disabled = true;
+
+            state.conversationHistory.push({
+                role: 'user',
+                content: message
+            });
+
+            if (state.conversationHistory.length > CONFIG.maxHistoryLength) {
+                state.conversationHistory = state.conversationHistory.slice(-CONFIG.maxHistoryLength);
+            }
+
+            console.log('Historial actual (' + state.conversationHistory.length + ' mensajes):', JSON.stringify(state.conversationHistory, null, 2));
+
+            showTypingIndicator();
+
+            try {
+                const payload = {
+                    message: message,
+                    history: state.conversationHistory
+                };
+
+                console.log('Payload enviado:', JSON.stringify(payload, null, 2));
+
+                const response = await fetch(CONFIG.webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                console.log('Status de respuesta:', response.status);
+
+                if (!response.ok) {
+                    throw new Error('Error del servidor: ' + response.status);
+                }
+
+                const data = await response.json();
+                console.log('Respuesta recibida:', JSON.stringify(data, null, 2));
+
+                let botMessage = extractMessage(data);
+                console.log('Mensaje extraido:', botMessage);
+
+                if (data.success === true || (typeof botMessage === 'string' && botMessage.includes('BOOKING_READY'))) {
+                    if (botMessage.includes('BOOKING_READY')) {
+                        botMessage = botMessage.split('BOOKING_READY')[0].trim();
+                    }
+                    
+                    if (botMessage) {
+                        addBotMessage(botMessage);
+                        state.conversationHistory.push({
+                            role: 'assistant',
+                            content: botMessage
+                        });
+                    }
+                    
+                    addSuccessMessage('Cita agendada con exito! Recibiras un email de confirmacion en breve. Si tienes alguna duda, puedes llamarnos al +34 963 521 847');
+                } else {
+                    addBotMessage(botMessage);
+                    state.conversationHistory.push({
+                        role: 'assistant',
+                        content: botMessage
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                addBotMessage('Lo siento, ha ocurrido un error. Por favor, intenta de nuevo o llama al +34 963 521 847');
+            } finally {
+                hideTypingIndicator();
+                state.isProcessing = false;
+                elements.sendButton.disabled = false;
+                elements.userInput.focus();
+            }
+        }
+
+        function extractMessage(data) {
+            console.log('Extrayendo mensaje de:', typeof data);
+
+            if (Array.isArray(data)) {
+                console.log('Es un array, tomando primer elemento');
+                data = data[0];
+            }
+
+            if (data && data.message) {
+                console.log('Encontrado en data.message');
+                return data.message;
+            }
+            
+            if (data && data.content) {
+                console.log('Encontrado en data.content');
+                return data.content;
+            }
+            
+            if (data && data.text) {
+                console.log('Encontrado en data.text');
+                return data.text;
+            }
+            
+            if (data && data.response) {
+                console.log('Encontrado en data.response');
+                return data.response;
+            }
+
+            if (typeof data === 'string') {
+                console.log('Es un string directo');
+                return data;
+            }
+
+            console.log('Estructura desconocida, devolviendo JSON completo');
+            return JSON.stringify(data);
+        }
+
+        function addUserMessage(text) {
+            addMessage(text, 'user');
+        }
+
+        function addBotMessage(text) {
+            addMessage(text, 'bot');
+        }
+
+        function addSuccessMessage(text) {
+            addMessage(text, 'success');
+        }
+
+        function addMessage(text, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + type;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            bubbleDiv.textContent = text;
+            
+            messageDiv.appendChild(bubbleDiv);
+            elements.chatMessages.insertBefore(messageDiv, elements.typingIndicator);
+            
+            scrollToBottom();
+        }
+
+        function showTypingIndicator() {
+            elements.typingIndicator.style.display = 'block';
+            scrollToBottom();
+        }
+
+        function hideTypingIndicator() {
+            elements.typingIndicator.style.display = 'none';
+        }
+
+        function scrollToBottom() {
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        }
+
+        init();
+    </script>
+</body>
+</html>
